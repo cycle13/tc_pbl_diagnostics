@@ -3,6 +3,13 @@
 #
 #	Program Name: obs_functions
 #
+#	Purpose: Functions that aide in plotting observed vertical wind profiles
+#
+#	Updated: 2:00 PM Tuesday December 3, 2019
+#
+#	WARNING: This code assumes Python 3, so there may be some 
+#            syntax errors if running with Python 2.
+#
 # -------------------------------------------------------------
 
 import numpy as np

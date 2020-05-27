@@ -1,7 +1,14 @@
 #!/Users/kmn182/anaconda3/envs/ENV1/bin/python
 # ------------------------------------------------------------
 #
-#	Program Name: output_functions
+#	Program Name: output_functions.py
+#
+#	Purpose: Functions that aide in plotting model output
+#
+#	Updated: 2:00 PM Thursday December 5, 2019
+#
+#	WARNING: This code assumes Python 3, so there may be some 
+#            syntax errors if running with Python 2.
 #
 # -------------------------------------------------------------
 
@@ -13,16 +20,13 @@ import types
 from scipy import ndimage
 
 # "center_cyclone" function
-# -------------------------
 # inputs:
 # initial_cyclone (floats): the 2D array of the cyclone (any variable)
 # lats (floats): the 1D array of latitudes
 # lons (floats): the 1D array of longitudes
-# -------------------------
 # outputs:
 # centered_cyclone (floats): the 2D array representing the cyclone
 # this assumes that the origin of the plane is (0,0)
-# -------------------------
 
 def center_cyclone( ps, initial_cyclone, lats, lons ):
 	
@@ -35,6 +39,8 @@ def center_cyclone( ps, initial_cyclone, lats, lons ):
 	# find the location of the variable field's centroid
 	i,j = ndimage.measurements.center_of_mass(initial_cyclone)
 	min_ps = np.nanmin(ps)
+	# min_lat_index = int(np.around(i)) # a bit of a misnomer
+# 	min_lon_index = int(np.around(j))
 	min_lat_index = np.where(ps == min_ps)[0][0]
 	min_lon_index = np.where(ps == min_ps)[1][0]
 	zero_lat_index = np.where(lats==0.)[0][0]
@@ -54,15 +60,15 @@ def center_cyclone( ps, initial_cyclone, lats, lons ):
 	return centered_cyclone
 	
 # calc_p_sfc_ind_ens function
-# ---------------------------
+# --------------------
 # inputs:
 # config = string defining the configuration
 # num_ensembles = integer number of ensembles
-# ---------------------------
+# --------------------
 # outputs:
 # p_sfc_min = time series of minimum surface pressure (in hPa), with an added dimension of ensemble members
 # sfc_wind_max = time series of maximum surface wind (in m/s), with an added dimension of ensemble members
-# ---------------------------
+# --------------------
 def calc_p_sfc_ind_ens(config, num_ensembles):
 
 	# read in the necessary modules
@@ -101,23 +107,25 @@ def calc_p_sfc_ind_ens(config, num_ensembles):
 	return p_sfc_min, sfc_wind_max
 	
 # calc_p_sfc_ens_avg function
-# ---------------------------
+# --------------------
 # inputs:
 # config = string defining the configuration
 # num_ensembles = integer number of ensembles
-# times = string of time step labels
-# ---------------------------
+# --------------------
 # outputs:
 # p_sfc_min = time series of minimum surface pressure (in hPa)...ensemble averaged
 # sfc_wind_max = time series of maximum surface wind (in m/s)...ensemble averaged
-# ---------------------------
-def calc_p_sfc_ens_avg(config, num_ensembles, times):
+# --------------------
+def calc_p_sfc_ens_avg(config, num_ensembles):
 
 	# read in the necessary modules
 	import numpy as np
 	from netCDF4 import Dataset
 	
-	ensembles = range(1, num_ensembles + 1)
+	times = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16']
+	
+	letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+	ensembles = letters[0:int(num_ensembles)]
 	
 	p_sfc_min = np.ones([len(times), num_ensembles]) * np.nan
 	sfc_wind_max = np.ones([len(times), num_ensembles]) * np.nan
@@ -125,36 +133,34 @@ def calc_p_sfc_ens_avg(config, num_ensembles, times):
 	for t_i, time in enumerate(times):
 		for e_i, ensemble in enumerate(ensembles):
 		
-			print('Now calculating the min sfc p and max sfc wind for ' + config + '/time step ' + time + '/ensemble member ' + str(ensemble).rjust(3,'0') + '...')
-		
 			# define the file path
-			input_path = '/Users/kmn182/ICS_scratch/output/' + config + '.' + str(ensemble).rjust(3, '0') + '/run'
-			file_name = config + '.' + str(ensemble).rjust(3, '0') + '.cam.h1.0001-01-' + time + '-00000.nc_regrid.nc' # for surface pressure
-			if file_name not in os.listdir(input_path): # it is possible that a few time steps may not exist, so skip these time steps
-				continue
-			u10_file_name = config + '.' + str(ensemble).rjust(3,'0') + '.cam.h3.0001-01-' + time + '-00000.nc_regrid.nc' # for u10
-			if u10_file_name not in os.listdir(input_path):
-				continue
+			input_path = '/Users/kmn182/ICS_scratch/output/' + config + str(ensemble) + '/run'
+			file_name = config + str(ensemble) + '.cam.h1.0001-01-' + time + '-00000.nc_regrid.nc'
 			full_path = input_path + '/' + file_name
-			u10_full_path = input_path + '/' + u10_file_name
 		
-			dataset = Dataset(full_path, 'r')
+			# read in the surface pressure data from the netCDF file
+			if config == 'RCE.QPC6.ne0np4tcfplane.ne15x8.exp712' and str(ensemble) == '16':
+				continue
+			print(config, str(ensemble))
+			dataset = Dataset(full_path)
 			dims = dataset['PS'][:].shape
-			if dims[0] == 0: # if, by chance, these are empty arrays
+			if dims[0] == 0:
 				p_sfc = np.nan
 				u = np.nan
 				v = np.nan
-				spd = np.nan
 			else:
 				p_sfc = dataset['PS'][0, :, :] # time x lat x lon # take the first time step 
-				dataset.close()
-				u10_dataset = Dataset(u10_full_path)
-				spd = u10_dataset['U10'][:] # lat x lon
-				u10_dataset.close()
-				# an alternative method is to read in u,v data, calculate the magnitude, and extrapolate to 10 m using a log-wind profile
+				u = dataset['U'][0, -1, :, :] # time x level x lat x lon # take the first time step and lowest model level
+				v = dataset['V'][0, -1, :, :] 
+			spd = np.sqrt(u**2 + v**2)
+			spd = spd * 0.85 # this is an adjustment to account for moving from 60m to 10m
+			
+			print(t_i, e_i)
 		
 			p_sfc_min[t_i, e_i] = np.nanmin(p_sfc) / 100. # the minimum surface pressure (converted from Pa to hPa)
 			sfc_wind_max[t_i, e_i] = np.nanmax(spd) # the maximum surface wind speed
+			
+			dataset.close()
 			
 	# calculate the ensemble average
 	p_sfc_min = np.nanmean(p_sfc_min, axis=1)
@@ -164,15 +170,15 @@ def calc_p_sfc_ens_avg(config, num_ensembles, times):
 	return p_sfc_min, sfc_wind_max
 	
 # calc_p_sfc_cm1 function
-# -----------------------
+# --------------------
 # inputs:
 # config = string defining the configuration
 # times = string list of time labels
-# -----------------------
+# --------------------
 # outputs:
 # p_sfc_min = time series of minimum surface pressure (in hPa)...ensemble averaged
 # sfc_wind_max = time series of maximum surface wind (in m/s)...ensemble averaged
-# -----------------------
+# --------------------
 def calc_p_sfc_cm1(config, times):
 
 	# read in the necessary modules
@@ -247,7 +253,7 @@ def calc_p_sfc_betacast(config, times):
 # --------------------
 # inputs:
 # time_series = array of strings representing a time series of the given variable
-# num_days = integer number of days to perform the centered running average
+# num_days = integere number of days to perform the centered running average
 # --------------------
 # outputs:
 # time_series_running_avg = the time series with a centered running average applied
@@ -279,39 +285,3 @@ def running_avg(time_series, num_days):
 
 	# output the running average of the time series
 	return time_series_running_avg
-	
-# calc_d_dz function
-# --------------------
-# inputs:
-# v = a 1D numpy array of the variable of which the derivative will be taken
-# z = a 1D array of heights (e.g., in meters) over which the derivative will be taken
-# --------------------
-# outputs:
-# d_dz = a 1D numpy array of d/dz values
-# --------------------
-def calc_d_dz(v, z):
-
-	# perform centered differencing in the middle
-	# perform forward differencing at the beginning of the array
-	# perform backward differencing at the end of the array
-	
-	# first check to see if v and z are of the same length
-	if len(v) != len(z):
-		print('ERROR: There is a dimension mismatch!. v has length ' + str(len(v)) +', but z has length ' + str(len(z)) + '! Aborting now.')
-		exit()
-	
-	# calculate the numerical derivative 
-	d_dz = np.ones([len(v)]) * np.nan
-	
-	for z_i in range(0, len(z)): # loop through all heights
-		
-		if z_i == 0: # forward differencing
-			d_dz[z_i] = (v[z_i+1] - v[z_i]) / (z[z_i+1] - z[z_i-1])
-		elif z_i == len(z)-1: # backward differencing
-			d_dz[z_i] = (v[z_i] - v[z_i-1]) / (z[z_i] - z[z_i-1])
-		else: # centered differencing
-			d_dz[z_i] = (v[z_i+1] - v[z_i-1]) / (z[z_i+1] - z[z_i-1])
-			
-	# return the d_dz value
-	return d_dz
-			
